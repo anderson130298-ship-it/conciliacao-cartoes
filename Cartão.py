@@ -139,137 +139,123 @@ else:
 # ABA 1: IMPORTAÇÃO
 # ==========================================
 with aba1:
-    if perfil != "Admin":
-        pass # Não desenha nada na tela dos usuários
-    else:
+    if perfil == "Admin":
         st.subheader("Upload de Arquivos")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("#### 📑 Cadastros Base (Opcionais)")
-        st.info("Suba os arquivos de cadastro separadamente (Excel ou CSV).")
-        file_forn = st.file_uploader("1. Fornecedores", type=['xlsx', 'csv'])
-        file_cc = st.file_uploader("2. Centros de Custo", type=['xlsx', 'csv'])
-        file_conta = st.file_uploader("3. Contas Financeiras", type=['xlsx', 'csv'])
-
-    with col2:
-        st.markdown("#### 💳 Fatura do Cartão")
-        # Força o formato brasileiro na caixinha de data
-        venc_global = st.date_input("📅 Vencimento desta Fatura", datetime.date.today(), format="DD/MM/YYYY")
         
-        # NOVO: Pergunta o Fornecedor Fixo do Cartão
-        if st.session_state.lista_forn:
-            forn_cartao = st.selectbox("🏦 Fornecedor Fixo do Cartão (Vai para o ERP)", options=["Selecione..."] + st.session_state.lista_forn)
-        else:
-            forn_cartao = st.text_input("🏦 Fornecedor Fixo do Cartão (Vai para o ERP)")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("#### 📑 Cadastros Base (Opcionais)")
+            st.info("Suba os arquivos de cadastro separadamente (Excel ou CSV).")
+            file_forn = st.file_uploader("1. Fornecedores", type=['xlsx', 'csv'])
+            file_cc = st.file_uploader("2. Centros de Custo", type=['xlsx', 'csv'])
+            file_conta = st.file_uploader("3. Contas Financeiras", type=['xlsx', 'csv'])
+
+        with col2:
+            st.markdown("#### 💳 Fatura do Cartão")
+            venc_global = st.date_input("📅 Vencimento desta Fatura", datetime.date.today(), format="DD/MM/YYYY")
             
-        file_fatura = st.file_uploader("Upload Extrato Bradesco", type=['csv', 'xlsx', 'xls'])
-
-if file_fatura:
-    try:
-        # 1. Lê os dados e transforma tudo em lista (suporta .xlsx, .xls e .csv)
-        if file_fatura.name.endswith(('.xlsx', '.xls')):
-            df_bruto = pd.read_excel(file_fatura, header=None).astype(str).values.tolist()
-        else:
-            try: conteudo = file_fatura.getvalue().decode('utf-8').splitlines()
-            except: conteudo = file_fatura.getvalue().decode('latin1').splitlines()
-            sep = ',' if any(',' in l for l in conteudo[:20]) else ';'
-            df_bruto = [l.split(sep) for l in conteudo]
-
-        # 2. Processa os Lançamentos pelo Limpador Inteligente
-        if st.button("🚀 Processar Lançamentos"):
-            if not forn_cartao or forn_cartao == "Selecione...":
-                st.error("⚠️ Por favor, informe o 'Fornecedor Fixo do Cartão' antes de processar.")
-                st.stop() # Para a execução aqui se estiver em branco
-                
-            st.session_state.fornecedor_global = forn_cartao
-            linhas = []
-            portador = "Desconhecido"
-            
-            for partes in df_bruto:
-                if len(partes) < 2: continue
-                p0, p1 = str(partes[0]).strip(), str(partes[1]).strip()
-
-                # Detecta Titular (Ex: ROMULO D NOGUEIRA - 5293)
-                if " - " in p0 and (p1 == "" or p1 == "nan"):
-                    portador = p0
-                    continue
-                
-                # Detecta Compra (Data DD/MM)
-                if re.match(r'^\d{2}/\d{2}$', p0):
-                    if any(x in p1.upper() for x in ["SALDO ANTERIOR", "PAGTO", "PAGAMENTO", "TOTAL PARA"]):
-                        continue
-                    
-                    try:
-                        # Pega valor da coluna 5 (índice 4)
-                        val_raw = partes[4].replace('"', '').strip() if len(partes) > 4 else partes[-1].replace('"', '').strip()
-                        v = float(val_raw.replace('.', '').replace(',', '.'))
-                        if v != 0:
-                            linhas.append({'Portador': portador, 'Hist': p1, 'Val': v})
-                    except: continue
-
-            if not linhas:
-                st.error("Nenhum lançamento válido encontrado.")
+            if st.session_state.lista_forn:
+                forn_cartao = st.selectbox("🏦 Fornecedor Fixo do Cartão (Vai para o ERP)", options=["Selecione..."] + st.session_state.lista_forn)
             else:
-                df_f = pd.DataFrame(linhas)
-                df_c = pd.DataFrame()
-                df_c['Portador'] = df_f['Portador']
-                df_c['Histórico Banco'] = df_f['Hist']
-                df_c['Detalhes (Obs)'] = ""
-                df_c['Estabelecimento'] = "" # Nova coluna para o usuário digitar a loja
+                forn_cartao = st.text_input("🏦 Fornecedor Fixo do Cartão (Vai para o ERP)")
                 
-                # NOVO: Lógica do Título Inteligente (Máx 8 caracteres)
-                # Pega as 4 primeiras letras do primeiro nome do titular (Ex: ROMULO -> ROMU)
-                nomes_curtos = df_f['Portador'].apply(lambda x: str(x).split()[0][:4].upper())
-                # Cria a sequência 001, 002, 003... para cada linha
-                sequencia = [f"{i:03d}" for i in range(1, len(df_f) + 1)]
-                # Junta tudo (Ex: ROMU001, ROMU002). Total = 7 caracteres!
-                df_c['Título'] = nomes_curtos + sequencia
-                
-                df_c['Conta Financeira'] = ""
-                df_c['C.Custo'] = ""
-                df_c['Valor'] = df_f['Val']
-                df_c['Vencimento'] = venc_global
+            file_fatura = st.file_uploader("Upload Extrato Bradesco", type=['csv', 'xlsx', 'xls'])
+
+        if file_fatura:
+            try:
+                if file_fatura.name.endswith(('.xlsx', '.xls')):
+                    df_bruto = pd.read_excel(file_fatura, header=None).astype(str).values.tolist()
+                else:
+                    try: conteudo = file_fatura.getvalue().decode('utf-8').splitlines()
+                    except: conteudo = file_fatura.getvalue().decode('latin1').splitlines()
+                    sep = ',' if any(',' in l for l in conteudo[:20]) else ';'
+                    df_bruto = [l.split(sep) for l in conteudo]
+
+                if st.button("🚀 Processar Lançamentos"):
+                    if not forn_cartao or forn_cartao == "Selecione...":
+                        st.error("⚠️ Por favor, informe o 'Fornecedor Fixo do Cartão' antes de processar.")
+                        st.stop() 
                         
-                st.session_state.df_conciliacao = df_c
-                salvar_fatura_no_disco() # Salva a fatura no HD!
-                st.success("✅ Lançamentos processados e salvos com sucesso! A equipe já pode conciliar.")
-        
-        # 4. Lê os arquivos de cadastro base (Forn, CC, Conta)
-        def ler_arquivo_cadastro(arquivo):
-            if arquivo.name.endswith('.csv'):
-                try: df = pd.read_csv(arquivo, sep=None, engine='python', encoding='utf-8', header=None)
-                except:
-                    arquivo.seek(0)
-                    df = pd.read_csv(arquivo, sep=None, engine='python', encoding='latin1', header=None)
-            else:
-                df = pd.read_excel(arquivo, header=None)
+                    st.session_state.fornecedor_global = forn_cartao
+                    linhas = []
+                    portador = "Desconhecido"
+                    
+                    for partes in df_bruto:
+                        if len(partes) < 2: continue
+                        p0, p1 = str(partes[0]).strip(), str(partes[1]).strip()
+
+                        if " - " in p0 and (p1 == "" or p1 == "nan"):
+                            portador = p0
+                            continue
+                        
+                        if re.match(r'^\d{2}/\d{2}$', p0):
+                            if any(x in p1.upper() for x in ["SALDO ANTERIOR", "PAGTO", "PAGAMENTO", "TOTAL PARA"]):
+                                continue
+                            
+                            try:
+                                val_raw = partes[4].replace('"', '').strip() if len(partes) > 4 else partes[-1].replace('"', '').strip()
+                                v = float(val_raw.replace('.', '').replace(',', '.'))
+                                if v != 0:
+                                    linhas.append({'Portador': portador, 'Hist': p1, 'Val': v})
+                            except: continue
+
+                    if not linhas:
+                        st.error("Nenhum lançamento válido encontrado.")
+                    else:
+                        df_f = pd.DataFrame(linhas)
+                        df_c = pd.DataFrame()
+                        df_c['Portador'] = df_f['Portador']
+                        df_c['Histórico Banco'] = df_f['Hist']
+                        df_c['Detalhes (Obs)'] = ""
+                        df_c['Estabelecimento'] = ""
+                        
+                        nomes_curtos = df_f['Portador'].apply(lambda x: str(x).split()[0][:4].upper())
+                        sequencia = [f"{i:03d}" for i in range(1, len(df_f) + 1)]
+                        df_c['Título'] = nomes_curtos + sequencia
+                        
+                        df_c['Conta Financeira'] = ""
+                        df_c['C.Custo'] = ""
+                        df_c['Valor'] = df_f['Val']
+                        df_c['Vencimento'] = venc_global
+                        df_c['Status'] = "Pendente ⏳" 
+                                
+                        st.session_state.df_conciliacao = df_c
+                        salvar_fatura_no_disco() 
+                        st.success("✅ Lançamentos processados e salvos com sucesso! A equipe já pode conciliar.")
                 
-            if len(df.columns) >= 2:
-                return (df.iloc[:, 0].astype(str) + " - " + df.iloc[:, 1].astype(str)).tolist()
-            return []
+                def ler_arquivo_cadastro(arquivo):
+                    if arquivo.name.endswith('.csv'):
+                        try: df = pd.read_csv(arquivo, sep=None, engine='python', encoding='utf-8', header=None)
+                        except:
+                            arquivo.seek(0)
+                            df = pd.read_csv(arquivo, sep=None, engine='python', encoding='latin1', header=None)
+                    else:
+                        df = pd.read_excel(arquivo, header=None)
+                        
+                    if len(df.columns) >= 2:
+                        return (df.iloc[:, 0].astype(str) + " - " + df.iloc[:, 1].astype(str)).tolist()
+                    return []
 
-        if file_forn: 
-            st.session_state.lista_forn = ler_arquivo_cadastro(file_forn)
-        salvar_dados_permanentes()
+                if file_forn: 
+                    st.session_state.lista_forn = ler_arquivo_cadastro(file_forn)
+                    salvar_dados_permanentes()
 
-        if file_cc: 
-            st.session_state.lista_cc = ler_arquivo_cadastro(file_cc)
-        salvar_dados_permanentes()
+                if file_cc: 
+                    st.session_state.lista_cc = ler_arquivo_cadastro(file_cc)
+                    salvar_dados_permanentes()
 
-        if file_conta: 
-            st.session_state.lista_contas = ler_arquivo_cadastro(file_conta)
-        salvar_dados_permanentes()
+                if file_conta: 
+                    st.session_state.lista_contas = ler_arquivo_cadastro(file_conta)
+                    salvar_dados_permanentes()
 
-        with aba1:
-            if not st.session_state.df_conciliacao.empty:
-                st.success("✅ Lançamentos processados com sucesso! Siga para a aba '2. Mesa de Conciliação'.")
-            else:
-                st.info("👆 Arquivo carregado! Agora clique em '🚀 Processar Lançamentos' para extrair os dados.")
+                if not st.session_state.df_conciliacao.empty:
+                    st.success("✅ Lançamentos processados com sucesso! Siga para a aba '2. Mesa de Conciliação'.")
+                else:
+                    st.info("👆 Arquivo carregado! Agora clique em '🚀 Processar Lançamentos' para extrair os dados.")
 
-    except Exception as e:
-        st.error(f"❌ Ocorreu um erro ao processar os arquivos. Erro: {e}")
+            except Exception as e:
+                st.error(f"❌ Ocorreu um erro ao processar os arquivos. Erro: {e}")
 
 # ==========================================
 # ABA 2: MESA DE CONCILIAÇÃO
