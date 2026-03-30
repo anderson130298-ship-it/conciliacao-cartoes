@@ -142,6 +142,17 @@ with aba1:
     if perfil == "Admin":
         st.subheader("Upload de Arquivos")
         
+        # NOVO: Botão de Resetar o Sistema
+        if st.button("🗑️ Limpar Todos os Dados (Iniciar Novo Mês)"):
+            st.session_state.df_conciliacao = pd.DataFrame()
+            st.session_state.fornecedor_global = ""
+            if os.path.exists(FATURA_FILE): os.remove(FATURA_FILE)
+            if os.path.exists(META_FILE): os.remove(META_FILE)
+            st.success("✅ Sistema zerado com sucesso! Pode subir a fatura nova.")
+            st.rerun()
+            
+        st.markdown("---")
+        
         col1, col2 = st.columns(2)
         
         with col1:
@@ -155,12 +166,11 @@ with aba1:
             st.markdown("#### 💳 Fatura do Cartão")
             venc_global = st.date_input("📅 Vencimento desta Fatura", datetime.date.today(), format="DD/MM/YYYY")
             
-            if st.session_state.lista_forn:
-                forn_cartao = st.selectbox("🏦 Fornecedor Fixo do Cartão (Vai para o ERP)", options=["Selecione..."] + st.session_state.lista_forn)
-            else:
-                forn_cartao = st.text_input("🏦 Fornecedor Fixo do Cartão (Vai para o ERP)")
-                
-            file_fatura = st.file_uploader("Upload Extrato Bradesco", type=['csv', 'xlsx', 'xls'])
+            # NOVO: Dados para o ERP
+        cod_empresa = st.text_input("🏢 Código da Empresa (Ex: 2 para Romulo)")
+        cod_fornecedor = st.text_input("🏦 Código do Fornecedor (Ex: 50)")
+            
+        file_fatura = st.file_uploader("Upload Extrato Bradesco", type=['csv', 'xlsx', 'xls'])
 
         if file_fatura:
             try:
@@ -173,11 +183,10 @@ with aba1:
                     df_bruto = [l.split(sep) for l in conteudo]
 
                 if st.button("🚀 Processar Lançamentos"):
-                    if not forn_cartao or forn_cartao == "Selecione...":
-                        st.error("⚠️ Por favor, informe o 'Fornecedor Fixo do Cartão' antes de processar.")
-                        st.stop() 
+                    if not cod_empresa or not cod_fornecedor:
+                        st.error("⚠️ Por favor, preencha o Código da Empresa e do Fornecedor antes de processar.")
+                        st.stop()
                         
-                    st.session_state.fornecedor_global = forn_cartao
                     linhas = []
                     portador = "Desconhecido"
                     
@@ -192,7 +201,6 @@ with aba1:
                         if re.match(r'^\d{2}/\d{2}$', p0):
                             if any(x in p1.upper() for x in ["SALDO ANTERIOR", "PAGTO", "PAGAMENTO", "TOTAL PARA"]):
                                 continue
-                            
                             try:
                                 val_raw = partes[4].replace('"', '').strip() if len(partes) > 4 else partes[-1].replace('"', '').strip()
                                 v = float(val_raw.replace('.', '').replace(',', '.'))
@@ -205,14 +213,16 @@ with aba1:
                     else:
                         df_f = pd.DataFrame(linhas)
                         df_c = pd.DataFrame()
+                        df_c['Empresa'] = cod_empresa
+                        df_c['Fornecedor'] = cod_fornecedor
                         df_c['Portador'] = df_f['Portador']
                         df_c['Histórico Banco'] = df_f['Hist']
-                        df_c['Detalhes (Obs)'] = ""
                         df_c['Estabelecimento'] = ""
+                        df_c['Detalhes (Obs)'] = ""
                         
                         nomes_curtos = df_f['Portador'].apply(lambda x: str(x).split()[0][:4].upper())
                         sequencia = [f"{i:03d}" for i in range(1, len(df_f) + 1)]
-                        df_c['Título'] = nomes_curtos + sequencia
+                        df_c['Titulo'] = nomes_curtos + sequencia
                         
                         df_c['Conta Financeira'] = ""
                         df_c['C.Custo'] = ""
@@ -220,9 +230,14 @@ with aba1:
                         df_c['Vencimento'] = venc_global
                         df_c['Status'] = "Pendente ⏳" 
                                 
-                        st.session_state.df_conciliacao = df_c
+                        # NOVO: Adiciona os novos lançamentos ao histórico existente (não apaga os antigos)
+                        if not st.session_state.df_conciliacao.empty:
+                            st.session_state.df_conciliacao = pd.concat([st.session_state.df_conciliacao, df_c], ignore_index=True)
+                        else:
+                            st.session_state.df_conciliacao = df_c
+                            
                         salvar_fatura_no_disco() 
-                        st.success("✅ Lançamentos processados e salvos com sucesso! A equipe já pode conciliar.")
+                        st.success("✅ Lançamentos adicionados à base de dados com sucesso!")
                 
                 def ler_arquivo_cadastro(arquivo):
                     if arquivo.name.endswith('.csv'):
@@ -267,18 +282,37 @@ with aba2:
         if perfil == "Admin": st.info("⚠️ Aguardando você importar e processar os Lançamentos na Aba 1.")
         else: st.info("⚠️ Nenhuma fatura foi liberada pelo Admin ainda.")
     else:
-        # Puxa os dados originais
         df_completo = st.session_state.df_conciliacao.copy()
         
+        # --- CORREÇÃO DE ARQUIVOS ANTIGOS ---
+        # Se o arquivo salvo for antigo e não tiver as colunas novas, criamos agora para não dar erro!
+        if 'Status' not in df_completo.columns: df_completo['Status'] = "Pendente ⏳"
+        if 'Empresa' not in df_completo.columns: df_completo['Empresa'] = ""
+        if 'Fornecedor' not in df_completo.columns: df_completo['Fornecedor'] = ""
+        if 'Titulo' not in df_completo.columns: df_completo['Titulo'] = ""
+        
+        # Filtros de Pesquisa (Histórico)
+        col_f1, col_f2 = st.columns(2)
+        with col_f1:
+            filtro_status = st.selectbox("📌 Filtrar por Status:", ["Pendente ⏳", "Concluído ✅", "Mostrar Todos"])
+        with col_f2:
+            datas_unicas = df_completo['Vencimento'].astype(str).unique().tolist()
+            filtro_data = st.selectbox("📅 Filtrar por Vencimento:", ["Todas as Datas"] + datas_unicas)
+            
+        # Aplica os filtros escolhidos
+        df_visao = df_completo.copy()
+        if filtro_status != "Mostrar Todos":
+            df_visao = df_visao[df_visao['Status'] == filtro_status]
+        if filtro_data != "Todas as Datas":
+            df_visao = df_visao[df_visao['Vencimento'].astype(str) == filtro_data]
+
         # Filtra pela visão do usuário logado
         if perfil == "Gleider":
-            df_visao = df_completo[df_completo['Portador'].str.contains("GLEIDER", case=False, na=False)]
+            df_visao = df_visao[df_visao['Portador'].str.contains("GLEIDER", case=False, na=False)]
         elif perfil == "Lilian":
-            df_visao = df_completo[df_completo['Portador'].str.contains("LILIAN", case=False, na=False)]
-        else:
-            df_visao = df_completo # Admin vê tudo
+            df_visao = df_visao[df_visao['Portador'].str.contains("LILIAN", case=False, na=False)]
 
-        st.markdown(f"**Fornecedor Fixo no ERP:** `{st.session_state.fornecedor_global}` | **Visão Atual:** `{perfil}`")
+        st.markdown(f"**Visão Atual:** `{perfil}`")
 
         # NOVO: Barra de progresso interativa e aviso de salvamento
         total_linhas = len(df_visao)
@@ -384,21 +418,29 @@ with aba3:
                     st.success("✅ Tudo preenchido corretamente! Layout validado e pronto para o Senior.")
 
                     df_exportacao = df_final.copy()
-                    df_exportacao['Fornecedor'] = st.session_state.fornecedor_global
                     
+                    # Concatenação Padrão Imagem: ESTABELECIMENTO | HISTORICO - DETALHES | Cartão Crédito: PORTADOR
                     df_exportacao['Observação'] = df_exportacao.apply(
-                        lambda row: f"{row['Histórico Banco']} - {row['Estabelecimento']} - {row['Detalhes (Obs)']} - {row['Portador']}" 
-                        if row['Detalhes (Obs)'].strip() != "" 
-                        else f"{row['Histórico Banco']} - {row['Estabelecimento']} - {row['Portador']}", 
+                        lambda row: f"{row['Estabelecimento']} | {row['Histórico Banco']} - {row['Detalhes (Obs)']} | Cartão Crédito: {row['Portador']}" 
+                        if str(row['Detalhes (Obs)']).strip() != "" 
+                        else f"{row['Estabelecimento']} | {row['Histórico Banco']} | Cartão Crédito: {row['Portador']}", 
                         axis=1
                     )
                     
-                    colunas_senior = ['Fornecedor', 'Título', 'Observação', 'Valor', 'Conta Financeira', 'C.Custo', 'Vencimento']
+                    # Formata Valor com Ponto (Ex: 1400.00)
+                    df_exportacao['Valor'] = df_exportacao['Valor'].apply(lambda x: f"{float(x):.2f}")
+                    
+                    # Formata Data para DD/MM/YYYY
+                    df_exportacao['Vencimento'] = pd.to_datetime(df_exportacao['Vencimento']).dt.strftime('%d/%m/%Y')
+                    
+                    # Define as colunas exatas da imagem
+                    colunas_senior = ['Empresa', 'Fornecedor', 'Titulo', 'Observação', 'Valor', 'Conta Financeira', 'C.Custo', 'Vencimento']
                     df_exportacao = df_exportacao[colunas_senior]
 
                     def convert_df_to_csv(df):
                         csv_buffer = BytesIO()
-                        df.to_csv(csv_buffer, index=False, sep=';', decimal=',', encoding='utf-8-sig')
+                        # Mantendo o separador ponto e vírgula, mas o Valor já vai travado com Ponto.
+                        df.to_csv(csv_buffer, index=False, sep=';', encoding='utf-8-sig')
                         return csv_buffer.getvalue()
 
                     st.download_button(
