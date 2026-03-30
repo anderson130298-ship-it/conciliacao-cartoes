@@ -128,14 +128,19 @@ with st.sidebar:
         st.success(f"✅ Bem-vindo(a), {perfil}!")
 
 # --- ABAS DE NAVEGAÇÃO ---
-aba1, aba2, aba3 = st.tabs(["📂 1. Importar Arquivos", "⚙️ 2. Mesa de Conciliação", "💾 3. Exportar Dados"])
+if perfil == "Admin":
+    aba1, aba2, aba3 = st.tabs(["📂 1. Importar Arquivos", "⚙️ 2. Mesa de Conciliação", "💾 3. Exportar Dados"])
+else:
+    aba2, = st.tabs(["⚙️ Mesa de Conciliação"])
+    aba1 = st.empty() # Aba fantasma invisível
+    aba3 = st.empty() # Aba fantasma invisível
 
 # ==========================================
 # ABA 1: IMPORTAÇÃO
 # ==========================================
 with aba1:
     if perfil != "Admin":
-        st.error("🚫 Acesso restrito! Apenas o 'Admin' pode importar arquivos.")
+        pass # Não desenha nada na tela dos usuários
     else:
         st.subheader("Upload de Arquivos")
     
@@ -365,7 +370,7 @@ with aba2:
 # ==========================================
 with aba3:
     if perfil != "Admin":
-        st.error("🚫 Acesso restrito! Apenas o 'Admin' pode validar e exportar relatórios para o ERP.")
+        pass # Não desenha nada na tela dos usuários
     else:
         st.subheader("Exportação para o ERP Senior")
         
