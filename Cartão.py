@@ -338,7 +338,7 @@ with aba2:
             "Portador": st.column_config.TextColumn("Portador (Cartão)", disabled=True),
             "Histórico Banco": st.column_config.TextColumn("Histórico Original", disabled=True),
             "Valor": st.column_config.NumberColumn("Valor (R$)", format="%.2f", disabled=True),
-            "Vencimento": st.column_config.TextColumn("Vencimento", disabled=True),
+            "Vencimento": st.column_config.DateColumn("Vencimento", format="DD/MM/YYYY", disabled=True),
             "Status": st.column_config.TextColumn("Status", disabled=True),
             "Detalhes (Obs)": st.column_config.TextColumn("Descrição (Detalhes)"), # Único texto livre editável
             
