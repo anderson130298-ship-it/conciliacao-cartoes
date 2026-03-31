@@ -290,10 +290,9 @@ with aba2:
         if 'Fornecedor' not in df_completo.columns: df_completo['Fornecedor'] = ""
         if 'Titulo' not in df_completo.columns: df_completo['Titulo'] = ""
 
-        # >>> NOVO: ATUALIZA O STATUS AUTOMATICAMENTE ANTES DE MOSTRAR <<<
+        # >>> NOVO: ATUALIZA O STATUS AUTOMATICAMENTE (Sem exigir Estabelecimento) <<<
         mask_concluido = (df_completo['Conta Financeira'].astype(str).str.strip() != "") & \
-                         (df_completo['C.Custo'].astype(str).str.strip() != "") & \
-                         (df_completo['Estabelecimento'].astype(str).str.strip() != "")
+                         (df_completo['C.Custo'].astype(str).str.strip() != "")
         df_completo.loc[mask_concluido, 'Status'] = "Concluído ✅"
         df_completo.loc[~mask_concluido, 'Status'] = "Pendente ⏳"
         
@@ -338,8 +337,8 @@ with aba2:
         config_colunas = {
             "Portador": st.column_config.TextColumn("Portador (Cartão)", disabled=True),
             "Histórico Banco": st.column_config.TextColumn("Histórico Original", disabled=True),
-            "Estabelecimento": st.column_config.TextColumn("Loja / Compra (Obrigatório)"), # Removido required=True
-            "Detalhes (Obs)": st.column_config.TextColumn("Detalhes"),
+            "Estabelecimento": None, # <<< Escondemos a coluna redundante
+            "Detalhes (Obs)": st.column_config.TextColumn("Descrição (Detalhes)"), # Fica apenas a descrição livre
             "Valor": st.column_config.NumberColumn("Valor (R$)", format="%.2f", disabled=True), # Bloqueado p/ não editar valor
             "Vencimento": st.column_config.DateColumn("Vencimento", format="DD/MM/YYYY", disabled=True),
             "Status": st.column_config.TextColumn("Status", disabled=True),
@@ -365,9 +364,10 @@ with aba2:
         df_editado = st.data_editor(
             df_visao,
             column_config=config_colunas,
-            num_rows="fixed", # >>> NOVO: Impede pular a seleção ao digitar
+            num_rows="fixed",
             width="stretch",
-            height=500 
+            height=500,
+            key=f"tabela_{perfil}_{filtro_status}" # <<< ISSO MATA O BUG DA DIGITAÇÃO E SELEÇÃO!
         )
         
         # >>> NOVO: SÓ SALVA SE HOUVE ALTERAÇÃO REAL (Evita apagar letras enquanto digita) <<<
@@ -389,7 +389,7 @@ with aba2:
         st.markdown("---")
         # Botão para o usuário encerrar a fatura dele
         if perfil != "Admin":
-            faltam = df_editado[(df_editado['Conta Financeira'] == "") | (df_editado['C.Custo'] == "") | (df_editado['Estabelecimento'] == "")]
+            faltam = df_editado[(df_editado['Conta Financeira'] == "") | (df_editado['C.Custo'] == "")]
             if st.button(f"🔒 Encerrar Minha Fatura ({perfil})"):
                 if not faltam.empty:
                     st.error(f"❌ Você ainda tem {len(faltam)} linha(s) com campos em branco. Preencha tudo antes de encerrar!")
@@ -425,7 +425,7 @@ with aba3:
             if df_final.empty:
                 st.error(f"Nenhum lançamento encontrado para a opção: {filtro_export}")
             else:
-                faltam_dados = df_final[(df_final['Conta Financeira'] == "") | (df_final['C.Custo'] == "") | (df_final['Estabelecimento'] == "")]
+                faltam_dados = df_final[(df_final['Conta Financeira'] == "") | (df_final['C.Custo'] == "")]
                 
                 if not faltam_dados.empty:
                     st.error(f"🛑 BLOQUEADO: Existem {len(faltam_dados)} linhas com Conta, C.Custo ou Estabelecimento em branco na visualização '{filtro_export}'. Corrija na Aba 2 antes de baixar.")
@@ -434,11 +434,11 @@ with aba3:
 
                     df_exportacao = df_final.copy()
                     
-                    # Concatenação Padrão Imagem: ESTABELECIMENTO | HISTORICO - DETALHES | Cartão Crédito: PORTADOR
+                    # Concatenação Nova Padrão: HISTORICO - DETALHES | Cartão Crédito: PORTADOR
                     df_exportacao['Observação'] = df_exportacao.apply(
-                        lambda row: f"{row['Estabelecimento']} | {row['Histórico Banco']} - {row['Detalhes (Obs)']} | Cartão Crédito: {row['Portador']}" 
+                        lambda row: f"{row['Histórico Banco']} - {row['Detalhes (Obs)']} | Cartão Crédito: {row['Portador']}" 
                         if str(row['Detalhes (Obs)']).strip() != "" 
-                        else f"{row['Estabelecimento']} | {row['Histórico Banco']} | Cartão Crédito: {row['Portador']}", 
+                        else f"{row['Histórico Banco']} | Cartão Crédito: {row['Portador']}", 
                         axis=1
                     )
                     
