@@ -322,8 +322,11 @@ with aba2:
         # NOVO: Barra de progresso interativa e aviso de salvamento
         total_linhas = len(df_visao)
         if total_linhas > 0:
-            # Conta quantas linhas ainda têm algum campo em branco
-            linhas_incompletas = df_visao[(df_visao['Conta Financeira'] == "") | (df_visao['C.Custo'] == "") | (df_visao['Estabelecimento'] == "")]
+            # Conta quantas linhas ainda têm algum campo em branco (Ajustado para ignorar o Estabelecimento e evitar erros de texto vazio)
+            linhas_incompletas = df_visao[
+                (df_visao['Conta Financeira'].astype(str).str.strip() == "") | 
+                (df_visao['C.Custo'].astype(str).str.strip() == "")
+            ]
             linhas_preenchidas = total_linhas - len(linhas_incompletas)
             
             # Calcula a porcentagem para a barra (de 0.0 a 1.0)
