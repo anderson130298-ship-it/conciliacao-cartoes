@@ -334,7 +334,11 @@ with aba2:
             
             # Mostra a barra na tela
             st.progress(percentual, text=f"📊 Progresso: {linhas_preenchidas} de {total_linhas} lançamentos preenchidos.")
-            st.caption("💾 O sistema salva automaticamente a cada edição! Pode preencher aos poucos e fechar quando quiser.")
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+        # >>> TRUQUE: RESERVA UM ESPAÇO AQUI NO TOPO PARA O BOTÃO SALVAR <<<
+        area_botao_salvar = st.empty()
+        st.markdown("<br>", unsafe_allow_html=True)
 
         # Configura as colunas (TRAVANDO TUDO QUE VEM DO CARTÃO)
         config_colunas = {
@@ -343,13 +347,13 @@ with aba2:
             "Valor": st.column_config.NumberColumn("Valor (R$)", format="%.2f", disabled=True),
             "Vencimento": st.column_config.DateColumn("Vencimento", format="DD/MM/YYYY", disabled=True),
             "Status": st.column_config.TextColumn("Status", disabled=True),
-            "Detalhes (Obs)": st.column_config.TextColumn("Descrição (Detalhes)"), # Único texto livre editável
+            "Titulo": st.column_config.TextColumn("Título", disabled=True), # <<< AGORA ESTÁ 100% VISÍVEL E TRAVADO
+            "Detalhes (Obs)": st.column_config.TextColumn("Descrição (Detalhes)"),
             
-            # Colunas ocultas e travadas
+            # Colunas ocultas (Ninguém vê)
             "Estabelecimento": None,
             "Empresa": None,
-            "Fornecedor": None,
-            "Titulo": st.column_config.TextColumn("Título", disabled=True) # <<< Coluna visível, porém 100% travada!
+            "Fornecedor": None
         }
         
         # >>> NOVO: ADICIONANDO [""] PARA PERMITIR DELETAR A SELEÇÃO <<<
@@ -374,22 +378,27 @@ with aba2:
             key="tabela_oficial_conciliacao" # CHAVE ESTÁTICA PARA NÃO PERDER O FOCO
         )
         
-        # >>> NOVO: BOTÃO MANUAL DE SALVAMENTO (Fim das atualizações automáticas!) <<<
-        st.markdown("<br>", unsafe_allow_html=True) # Dá um espacinho visual
-        if st.button("💾 SALVAR ALTERAÇÕES DA TABELA", type="primary", use_container_width=True):
+        # >>> BOTÃO RENDERIZADO NO TOPO (Usando o espaço vazio criado no Passo 1) <<<
+        if area_botao_salvar.button("💾 SALVAR ALTERAÇÕES DA TABELA", type="primary", use_container_width=True):
             
-            # 1. Pega tudo que o usuário digitou na tela e passa para o banco
+            # 1. Limpeza Pesada: Pega a edição e extermina os falsos nulos ("None") do Streamlit
             for col in ['Conta Financeira', 'C.Custo', 'Detalhes (Obs)']:
-                df_completo.loc[df_editado.index, col] = df_editado[col]
+                valores_limpos = df_editado[col].fillna("").astype(str).str.strip()
+                # Mata as palavras invisíveis que faziam a tabela não voltar pra Pendente
+                valores_limpos = valores_limpos.replace(["None", "nan", "<NA>", "NaN"], "")
+                df_completo.loc[df_editado.index, col] = valores_limpos
             
-            # 2. Recalcula o Status (Se o usuário apagou um campo, ele volta pra Pendente!)
-            mask_concluido = (df_completo['Conta Financeira'].astype(str).str.strip() != "") & \
-                             (df_completo['C.Custo'].astype(str).str.strip() != "")
+            # 2. Recalcula o Status (Agora de forma blindada contra os nulos)
+            # Lê o banco novamente, limpando caso haja lixo salvo de antes
+            col_conta = df_completo['Conta Financeira'].astype(str).str.strip().replace(["None", "nan"], "")
+            col_ccusto = df_completo['C.Custo'].astype(str).str.strip().replace(["None", "nan"], "")
+            
+            mask_concluido = (col_conta != "") & (col_ccusto != "")
             
             df_completo.loc[mask_concluido, 'Status'] = "Concluído ✅"
             df_completo.loc[~mask_concluido, 'Status'] = "Pendente ⏳"
 
-            # 3. Salva no disco e recarrega a tela com os novos status
+            # 3. Salva no disco e recarrega a tela
             st.session_state.df_conciliacao = df_completo
             salvar_fatura_no_disco()
             st.rerun()
