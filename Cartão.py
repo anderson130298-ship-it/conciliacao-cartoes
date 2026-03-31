@@ -333,17 +333,17 @@ with aba2:
             st.progress(percentual, text=f"📊 Progresso: {linhas_preenchidas} de {total_linhas} lançamentos preenchidos.")
             st.caption("💾 O sistema salva automaticamente a cada edição! Pode preencher aos poucos e fechar quando quiser.")
 
-        # Configura as colunas
+        # Configura as colunas (TRAVANDO TUDO QUE VEM DO CARTÃO)
         config_colunas = {
             "Portador": st.column_config.TextColumn("Portador (Cartão)", disabled=True),
             "Histórico Banco": st.column_config.TextColumn("Histórico Original", disabled=True),
-            "Estabelecimento": None, # <<< Escondemos a coluna redundante
-            "Detalhes (Obs)": st.column_config.TextColumn("Descrição (Detalhes)"), # Fica apenas a descrição livre
-            "Valor": st.column_config.NumberColumn("Valor (R$)", format="%.2f", disabled=True), # Bloqueado p/ não editar valor
-            "Vencimento": st.column_config.DateColumn("Vencimento", format="DD/MM/YYYY", disabled=True),
+            "Valor": st.column_config.NumberColumn("Valor (R$)", format="%.2f", disabled=True),
+            "Vencimento": st.column_config.TextColumn("Vencimento", disabled=True),
             "Status": st.column_config.TextColumn("Status", disabled=True),
+            "Detalhes (Obs)": st.column_config.TextColumn("Descrição (Detalhes)"), # Único texto livre editável
             
-            # >>> NOVO: ESCONDENDO AS COLUNAS TÉCNICAS DA TELA <<<
+            # Colunas ocultas
+            "Estabelecimento": None,
             "Empresa": None,
             "Fornecedor": None,
             "Titulo": None
@@ -364,17 +364,21 @@ with aba2:
         df_editado = st.data_editor(
             df_visao,
             column_config=config_colunas,
-            num_rows="fixed",
-            width="stretch",
+            num_rows="fixed", # Impede adicionar linhas
+            hide_index=True,  # Impede selecionar a linha inteira para deletar
+            use_container_width=True,
             height=500,
-            key=f"tabela_{perfil}_{filtro_status}" # <<< ISSO MATA O BUG DA DIGITAÇÃO E SELEÇÃO!
+            key="tabela_oficial_conciliacao" # CHAVE ESTÁTICA PARA NÃO PERDER O FOCO
         )
         
-        # >>> NOVO: SÓ SALVA SE HOUVE ALTERAÇÃO REAL (Evita apagar letras enquanto digita) <<<
+        # Atualização cirúrgica: Salva apenas as 3 colunas permitidas e força o recarregamento rápido
         if not df_editado.equals(df_visao):
-            df_completo.update(df_editado)
+            for col in ['Conta Financeira', 'C.Custo', 'Detalhes (Obs)']:
+                df_completo.loc[df_editado.index, col] = df_editado[col]
+                
             st.session_state.df_conciliacao = df_completo
             salvar_fatura_no_disco()
+            st.rerun() # Atualiza a tela de uma vez sem travar a próxima letra
         
         st.markdown("---")
         col_tot1, col_tot2 = st.columns([2, 1])
