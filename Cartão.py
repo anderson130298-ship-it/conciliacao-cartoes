@@ -345,11 +345,11 @@ with aba2:
             "Status": st.column_config.TextColumn("Status", disabled=True),
             "Detalhes (Obs)": st.column_config.TextColumn("Descrição (Detalhes)"), # Único texto livre editável
             
-            # Colunas ocultas
+            # Colunas ocultas e travadas
             "Estabelecimento": None,
             "Empresa": None,
             "Fornecedor": None,
-            "Titulo": None
+            "Titulo": st.column_config.TextColumn("Título", disabled=True) # <<< Coluna visível, porém 100% travada!
         }
         
         # >>> NOVO: ADICIONANDO [""] PARA PERMITIR DELETAR A SELEÇÃO <<<
@@ -374,14 +374,25 @@ with aba2:
             key="tabela_oficial_conciliacao" # CHAVE ESTÁTICA PARA NÃO PERDER O FOCO
         )
         
-        # Atualização cirúrgica: Salva apenas as 3 colunas permitidas e força o recarregamento rápido
-        if not df_editado.equals(df_visao):
+        # >>> NOVO: BOTÃO MANUAL DE SALVAMENTO (Fim das atualizações automáticas!) <<<
+        st.markdown("<br>", unsafe_allow_html=True) # Dá um espacinho visual
+        if st.button("💾 SALVAR ALTERAÇÕES DA TABELA", type="primary", use_container_width=True):
+            
+            # 1. Pega tudo que o usuário digitou na tela e passa para o banco
             for col in ['Conta Financeira', 'C.Custo', 'Detalhes (Obs)']:
                 df_completo.loc[df_editado.index, col] = df_editado[col]
-                
+            
+            # 2. Recalcula o Status (Se o usuário apagou um campo, ele volta pra Pendente!)
+            mask_concluido = (df_completo['Conta Financeira'].astype(str).str.strip() != "") & \
+                             (df_completo['C.Custo'].astype(str).str.strip() != "")
+            
+            df_completo.loc[mask_concluido, 'Status'] = "Concluído ✅"
+            df_completo.loc[~mask_concluido, 'Status'] = "Pendente ⏳"
+
+            # 3. Salva no disco e recarrega a tela com os novos status
             st.session_state.df_conciliacao = df_completo
             salvar_fatura_no_disco()
-            st.rerun() # Atualiza a tela de uma vez sem travar a próxima letra
+            st.rerun()
         
         st.markdown("---")
         col_tot1, col_tot2 = st.columns([2, 1])
