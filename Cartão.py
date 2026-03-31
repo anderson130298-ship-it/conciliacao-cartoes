@@ -285,11 +285,17 @@ with aba2:
         df_completo = st.session_state.df_conciliacao.copy()
         
         # --- CORREÇÃO DE ARQUIVOS ANTIGOS ---
-        # Se o arquivo salvo for antigo e não tiver as colunas novas, criamos agora para não dar erro!
         if 'Status' not in df_completo.columns: df_completo['Status'] = "Pendente ⏳"
         if 'Empresa' not in df_completo.columns: df_completo['Empresa'] = ""
         if 'Fornecedor' not in df_completo.columns: df_completo['Fornecedor'] = ""
         if 'Titulo' not in df_completo.columns: df_completo['Titulo'] = ""
+
+        # >>> NOVO: ATUALIZA O STATUS AUTOMATICAMENTE ANTES DE MOSTRAR <<<
+        mask_concluido = (df_completo['Conta Financeira'].astype(str).str.strip() != "") & \
+                         (df_completo['C.Custo'].astype(str).str.strip() != "") & \
+                         (df_completo['Estabelecimento'].astype(str).str.strip() != "")
+        df_completo.loc[mask_concluido, 'Status'] = "Concluído ✅"
+        df_completo.loc[~mask_concluido, 'Status'] = "Pendente ⏳"
         
         # Filtros de Pesquisa (Histórico)
         col_f1, col_f2 = st.columns(2)
@@ -332,34 +338,43 @@ with aba2:
         config_colunas = {
             "Portador": st.column_config.TextColumn("Portador (Cartão)", disabled=True),
             "Histórico Banco": st.column_config.TextColumn("Histórico Original", disabled=True),
-            "Estabelecimento": st.column_config.TextColumn("Loja / Compra (Obrigatório)", required=True),
+            "Estabelecimento": st.column_config.TextColumn("Loja / Compra (Obrigatório)"), # Removido required=True
             "Detalhes (Obs)": st.column_config.TextColumn("Detalhes"),
-            "Valor": st.column_config.NumberColumn("Valor (R$)", format="%.2f"),
-            "Vencimento": st.column_config.DateColumn("Vencimento", format="DD/MM/YYYY"),
-            "Status": st.column_config.TextColumn("Status", disabled=True)
+            "Valor": st.column_config.NumberColumn("Valor (R$)", format="%.2f", disabled=True), # Bloqueado p/ não editar valor
+            "Vencimento": st.column_config.DateColumn("Vencimento", format="DD/MM/YYYY", disabled=True),
+            "Status": st.column_config.TextColumn("Status", disabled=True),
+            
+            # >>> NOVO: ESCONDENDO AS COLUNAS TÉCNICAS DA TELA <<<
+            "Empresa": None,
+            "Fornecedor": None,
+            "Titulo": None
         }
         
-        if st.session_state.lista_contas: config_colunas["Conta Financeira"] = st.column_config.SelectboxColumn("Conta Financeira", options=st.session_state.lista_contas, required=True)
-        else: config_colunas["Conta Financeira"] = st.column_config.TextColumn("Conta Financeira", required=True)
+        # >>> NOVO: ADICIONANDO [""] PARA PERMITIR DELETAR A SELEÇÃO <<<
+        if st.session_state.lista_contas: 
+            config_colunas["Conta Financeira"] = st.column_config.SelectboxColumn("Conta Financeira", options=[""] + st.session_state.lista_contas)
+        else: 
+            config_colunas["Conta Financeira"] = st.column_config.TextColumn("Conta Financeira")
 
-        if st.session_state.lista_cc: config_colunas["C.Custo"] = st.column_config.SelectboxColumn("C.Custo", options=st.session_state.lista_cc, required=True)
-        else: config_colunas["C.Custo"] = st.column_config.TextColumn("C.Custo", required=True)
+        if st.session_state.lista_cc: 
+            config_colunas["C.Custo"] = st.column_config.SelectboxColumn("C.Custo", options=[""] + st.session_state.lista_cc)
+        else: 
+            config_colunas["C.Custo"] = st.column_config.TextColumn("C.Custo")
 
         # Exibe a tabela filtrada
         df_editado = st.data_editor(
             df_visao,
             column_config=config_colunas,
-            num_rows="dynamic",
+            num_rows="fixed", # >>> NOVO: Impede pular a seleção ao digitar
             width="stretch",
             height=500 
         )
         
-        # Atualiza o banco principal APENAS com o que o usuário mexeu e SALVA no computador!
-        if not df_editado.empty:
+        # >>> NOVO: SÓ SALVA SE HOUVE ALTERAÇÃO REAL (Evita apagar letras enquanto digita) <<<
+        if not df_editado.equals(df_visao):
             df_completo.update(df_editado)
-            
-        st.session_state.df_conciliacao = df_completo
-        salvar_fatura_no_disco() 
+            st.session_state.df_conciliacao = df_completo
+            salvar_fatura_no_disco()
         
         st.markdown("---")
         col_tot1, col_tot2 = st.columns([2, 1])
