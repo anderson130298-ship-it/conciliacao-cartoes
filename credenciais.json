@@ -1,13 +1,12 @@
-{
-  "type": "service_account",
-  "project_id": "tribal-spanner-462513-t2",
-  "private_key_id": "4abb11180486d3f776793db740bd7cf3e1624112",
-  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDAInY4IyKHtLJP\n1ky9TdUjJDu3GTcmH7wa/KIBzLut8C92t98N52pLEyubi6w95ZH0NZB3CRN5J8+0\nnDM2NPp+VtoYqo0QTJhldJobltCyDvhzyuhq8NT5meyamUaoPkERF/oXB21Rgzu7\nGB3YNg5By4QooaBcZxA4GNCz1Dve3D4+siWSqFUC66Jnlc9qMEftwaNev+IVacNl\newb7U2sjzX9+53xudD/bYFlMnUjgOaj1DgMnfr2yaBL9E7HXj9zNad2LMeANUNpd\nZJLzYUuKa9R4ZzemshfWaXq98SkmPAiKWhZQPQp9QUK1/gTE07B/P7R6UAUf/kNr\nap8nxvLJAgMBAAECggEAAS6QVLMIMpvKwGMYblU4boKeIwPKJX8gaTK1dzMA8gkK\nxsiafPlYuryy/FFH7Q/mD2KFUXHrYawUbw53RkMVGXgV/gBg5unTi277P7r3yic0\n5R3wRmeJrO46SGBkM3qfQohQa/JKLNQBoAW6khSYZXbgw5YqxrIyR+7Q0ji/QxNu\nhPjrUBJq+Zj9R2O6KzQflTBwFwiS9X3mEWwQ/2YWQoHuoRed5G4fyB+MRbRj+67N\nXctMWKHrrpyEySFiK83uXtVJzsc9jTP/fDeusEBl7t17a6ongvdHI1CRShfju26C\nMI2NwzhEo83kUYeRObeZ4ukxb+o9ZrnbRj5+T+wD9QKBgQDwotw4+9gzCpMGIWgQ\ntHOGI6sMqUYBgLh5ICPO8HC4V30fwRfS2/TQSFurEw6rX3xgwx5+n57bQYYMuDp8\nF417NJQRQ5IvZmv0W8oakRpKrAs2zHtai+KQpu52lwX2ZeE+NOHaAkcFxDFJks5g\ns5VCQyEAdhp8UTh9fzy5rzy/TQKBgQDMZtr7Ym/SQfYmg2tO8uP8CJKFn+odvY6E\n/7M1lawNEY3lat8mAlXWMdzBB2u1J0U0FFrBE6pK0e3vrs0MM1G4O5bWh9uvxQNL\nNJF48eyCK8UNyWbfBgPCsGheDeTKp3zhKfDx6EeNWs6rURu1L76V94olkVkqIHPU\noIHT/j37bQKBgDcQvZ5YmzfK4qwTdvHjqU/314uVLMzpPM2S+j6/rLuyYZKjqCT7\naoFDHZ7/RGsY9aha3h6RvlNkIh3FBrUg2qJn/L4anVg1cty/KHd93utZhVNr5Ypp\n2lXJrWX710R0Od/3T/uIa+I47CJu8sUUM0Kvg9zMKfFq0Kd/N1EydY89AoGBAKLS\n9HH4UjddkCXR3nN/jRlCAuYrIyYZ0CQmRK3U0r9+UliEr8npZlNAWSfzL1uZMslv\nxXO0pJ0BadbamkCzyM9HuLqgcuIrwJnyAEgl/08aati2rRnQAsLeH+V8j9rXXOVI\nscUiUY1K3wMdk0LcC6gPDp8qj6q9O0gPrBwhlWJpAoGBAOlIrkvDlBbFUpswSDt8\n4L/jz/KZBaDnCWX4JpQGnEgG2fW/CEXfGiReZ+poQm7+q9g+6TB8ZGvVb9id7DOu\nDJMu5WhBgD+Q5Xm0bUn24fokKIztOyAQwmaof6X0Wb7gz8R1pY13Byuom2DypjxJ\n+vO7vMEgvxqM4SNxPdcOYFMI\n-----END PRIVATE KEY-----\n",
-  "client_email": "cart-o@tribal-spanner-462513-t2.iam.gserviceaccount.com",
-  "client_id": "109316701166065863110",
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/cart-o%40tribal-spanner-462513-t2.iam.gserviceaccount.com",
-  "universe_domain": "googleapis.com"
-}
+[gcp_service_account]
+type = "service_account"
+project_id = "tribal-spanner-462513-t2"
+private_key_id = "4abb11180486d3f776793db740bd7cf3e1624112"
+private_key = "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDAInY4IyKHtLJP\n1ky9TdUjJDu3GTcmH7wa/KIBzLut8C92t98N52pLEyubi6w95ZH0NZB3CRN5J8+0\nnDM2NPp+VtoYqo0QTJhldJobltCyDvhzyuhq8NT5meyamUaoPkERF/oXB21Rgzu7\nGB3YNg5By4QooaBcZxA4GNCz1Dve3D4+siWSqFUC66Jnlc9qMEftwaNev+IVacNl\newb7U2sjzX9+53xudD/bYFlMnUjgOaj1DgMnfr2yaBL9E7HXj9zNad2LMeANUNpd\nZJLzYUuKa9R4ZzemshfWaXq98SkmPAiKWhZQPQp9QUK1/gTE07B/P7R6UAUf/kNr\nap8nxvLJAgMBAAECggEAAS6QVLMIMpvKwGMYblU4boKeIwPKJX8gaTK1dzMA8gkK\nxsiafPlYuryy/FFH7Q/mD2KFUXHrYawUbw53RkMVGXgV/gBg5unTi277P7r3yic0\n5R3wRmeJrO46SGBkM3qfQohQa/JKLNQBoAW6khSYZXbgw5YqxrIyR+7Q0ji/QxNu\nhPjrUBJq+Zj9R2O6KzQflTBwFwiS9X3mEWwQ/2YWQoHuoRed5G4fyB+MRbRj+67N\nXctMWKHrrpyEySFiK83uXtVJzsc9jTP/fDeusEBl7t17a6ongvdHI1CRShfju26C\nMI2NwzhEo83kUYeRObeZ4ukxb+o9ZrnbRj5+T+wD9QKBgQDwotw4+9gzCpMGIWgQ\ntHOGI6sMqUYBgLh5ICPO8HC4V30fwRfS2/TQSFurEw6rX3xgwx5+n57bQYYMuDp8\nF417NJQRQ5IvZmv0W8oakRpKrAs2zHtai+KQpu52lwX2ZeE+NOHaAkcFxDFJks5g\ns5VCQyEAdhp8UTh9fzy5rzy/TQKBgQDMZtr7Ym/SQfYmg2tO8uP8CJKFn+odvY6E\n/7M1lawNEY3lat8mAlXWMdzBB2u1J0U0FFrBE6pK0e3vrs0MM1G4O5bWh9uvxQNL\nNJF48eyCK8UNyWbfBgPCsGheDeTKp3zhKfDx6EeNWs6rURu1L76V94olkVkqIHPU\noIHT/j37bQKBgDcQvZ5YmzfK4qwTdvHjqU/314uVLMzpPM2S+j6/rLuyYZKjqCT7\naoFDHZ7/RGsY9aha3h6RvlNkIh3FBrUg2qJn/L4anVg1cty/KHd93utZhVNr5Ypp\n2lXJrWX710R0Od/3T/uIa+I47CJu8sUUM0Kvg9zMKfFq0Kd/N1EydY89AoGBAKLS\n9HH4UjddkCXR3nN/jRlCAuYrIyYZ0CQmRK3U0r9+UliEr8npZlNAWSfzL1uZMslv\nxXO0pJ0BadbamkCzyM9HuLqgcuIrwJnyAEgl/08aati2rRnQAsLeH+V8j9rXXOVI\nscUiUY1K3wMdk0LcC6gPDp8qj6q9O0gPrBwhlWJpAoGBAOlIrkvDlBbFUpswSDt8\n4L/jz/KZBaDnCWX4JpQGnEgG2fW/CEXfGiReZ+poQm7+q9g+6TB8ZGvVb9id7DOu\nDJMu5WhBgD+Q5Xm0bUn24fokKIztOyAQwmaof6X0Wb7gz8R1pY13Byuom2DypjxJ\n+vO7vMEgvxqM4SNxPdcOYFMI\n-----END PRIVATE KEY-----\n"
+client_email = "cart-o@tribal-spanner-462513-t2.iam.gserviceaccount.com"
+client_id = "109316701166065863110"
+auth_uri = "https://accounts.google.com/o/oauth2/auth"
+token_uri = "https://oauth2.googleapis.com/token"
+auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
+client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/cart-o%40tribal-spanner-462513-t2.iam.gserviceaccount.com"
+universe_domain = "googleapis.com"
