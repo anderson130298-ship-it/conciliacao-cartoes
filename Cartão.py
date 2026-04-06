@@ -379,28 +379,32 @@ with aba2:
         )
         
         # >>> BOTÃO RENDERIZADO NO TOPO (Usando o espaço vazio criado no Passo 1) <<<
-        if area_botao_salvar.button("💾 SALVAR ALTERAÇÕES DA TABELA", type="primary", use_container_width=True):
-            
-            # 1. Limpeza Pesada: Pega a edição e extermina os falsos nulos ("None") do Streamlit
+        
+        # --- FUNÇÃO DE SALVAR EXTRAÍDA PARA REUSO E PREVENÇÃO DE BUGS ---
+        def processar_salvamento(encerrar_fatura=False):
+            # 1. Limpeza Pesada: Pega a edição da tela e joga pro banco oficial
             for col in ['Conta Financeira', 'C.Custo', 'Detalhes (Obs)']:
                 valores_limpos = df_editado[col].fillna("").astype(str).str.strip()
-                # Mata as palavras invisíveis que faziam a tabela não voltar pra Pendente
                 valores_limpos = valores_limpos.replace(["None", "nan", "<NA>", "NaN"], "")
                 df_completo.loc[df_editado.index, col] = valores_limpos
             
-            # 2. Recalcula o Status (Agora de forma blindada contra os nulos)
-            # Lê o banco novamente, limpando caso haja lixo salvo de antes
+            # 2. Recalcula o Status
             col_conta = df_completo['Conta Financeira'].astype(str).str.strip().replace(["None", "nan"], "")
             col_ccusto = df_completo['C.Custo'].astype(str).str.strip().replace(["None", "nan"], "")
-            
             mask_concluido = (col_conta != "") & (col_ccusto != "")
             
             df_completo.loc[mask_concluido, 'Status'] = "Concluído ✅"
             df_completo.loc[~mask_concluido, 'Status'] = "Pendente ⏳"
 
-            # 3. Salva no disco e recarrega a tela
+            if encerrar_fatura:
+                df_completo.loc[df_editado.index, 'Status'] = "Concluído ✅"
+
+            # 3. Salva no disco
             st.session_state.df_conciliacao = df_completo
             salvar_fatura_no_disco()
+
+        if area_botao_salvar.button("💾 SALVAR ALTERAÇÕES DA TABELA (Aperte Enter nas células antes)", type="primary", use_container_width=True):
+            processar_salvamento()
             st.rerun()
         
         st.markdown("---")
@@ -414,18 +418,56 @@ with aba2:
             st.metric(label="💰 TOTAL DA VISÃO ATUAL", value=f"R$ {total_geral:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
         st.markdown("---")
-        # Botão para o usuário encerrar a fatura dele
+        # Botão para o usuário encerrar a fatura dele e fazer o Download
         if perfil != "Admin":
-            faltam = df_editado[(df_editado['Conta Financeira'] == "") | (df_editado['C.Custo'] == "")]
-            if st.button(f"🔒 Encerrar Minha Fatura ({perfil})"):
-                if not faltam.empty:
-                    st.error(f"❌ Você ainda tem {len(faltam)} linha(s) com campos em branco. Preencha tudo antes de encerrar!")
-                else:
-                    # Muda o status para concluído
-                    st.session_state.df_conciliacao.loc[df_editado.index, 'Status'] = "Concluído ✅"
-                    salvar_fatura_no_disco()
-                    st.success("🎉 Parabéns! Sua fatura foi encerrada com sucesso. O Admin já pode exportar.")
-                    st.rerun() # Atualiza a tela automaticamente
+            col_btn1, col_btn2 = st.columns(2)
+            
+            with col_btn1:
+                st.markdown("🔒 **Finalizar Lançamentos:**")
+                if st.button(f"✅ Encerrar Minha Fatura ({perfil})", use_container_width=True):
+                    processar_salvamento(encerrar_fatura=False) # Força salvar antes de checar pra não perder dados!
+                    faltam_agora = df_completo.loc[df_editado.index]
+                    faltam_agora = faltam_agora[(faltam_agora['Conta Financeira'] == "") | (faltam_agora['C.Custo'] == "")]
+                    
+                    if not faltam_agora.empty:
+                        st.error(f"❌ Você ainda tem {len(faltam_agora)} linha(s) com campos em branco. Preencha tudo!")
+                    else:
+                        processar_salvamento(encerrar_fatura=True)
+                        st.success("🎉 Fatura encerrada com sucesso! O Admin já pode exportar.")
+                        st.rerun()
+            
+            with col_btn2:
+                # --- EXPORTAÇÕES DO USUÁRIO ---
+                st.markdown("⬇️ **Baixar Relatórios (Para enviar):**")
+                
+                # Prepara o CSV com códigos limpos e colunas escondidas forçadas
+                df_exp_user = df_editado.copy()
+                df_exp_user['Conta Financeira'] = df_exp_user['Conta Financeira'].astype(str).apply(lambda x: str(x).split(' - ')[0].strip() if ' - ' in str(x) else x)
+                df_exp_user['C.Custo'] = df_exp_user['C.Custo'].astype(str).apply(lambda x: str(x).split(' - ')[0].strip() if ' - ' in str(x) else x)
+                
+                for c in ['Empresa', 'Fornecedor', 'Titulo']:
+                    if c not in df_exp_user.columns: 
+                        df_exp_user[c] = df_completo.loc[df_editado.index, c] if c in df_completo.columns else ""
+
+                df_exp_user['Observação'] = df_exp_user.apply(lambda row: f"{row['Histórico Banco']} - {row['Detalhes (Obs)']} | Cartão Crédito: {row['Portador']}" if str(row['Detalhes (Obs)']).strip() != "" else f"{row['Histórico Banco']} | Cartão Crédito: {row['Portador']}", axis=1)
+                df_exp_user['Valor'] = df_exp_user['Valor'].apply(lambda x: f"{float(x):.2f}")
+                df_exp_user['Vencimento'] = pd.to_datetime(df_exp_user['Vencimento']).dt.strftime('%d/%m/%Y')
+                
+                colunas_senior = ['Empresa', 'Fornecedor', 'Titulo', 'Observação', 'Valor', 'Conta Financeira', 'C.Custo', 'Vencimento']
+                df_exp_user = df_exp_user[colunas_senior]
+                
+                csv_buffer = BytesIO()
+                df_exp_user.to_csv(csv_buffer, index=False, sep=';', encoding='utf-8-sig')
+                
+                st.download_button("📊 1. Baixar Arquivo CSV", data=csv_buffer.getvalue(), file_name=f"fatura_ERP_{perfil}_{datetime.datetime.now().strftime('%d%m%Y')}.csv", mime="text/csv", use_container_width=True)
+
+                # Prepara o Relatório em HTML pronto para virar PDF
+                html_linhas = ""
+                for idx, row in df_editado.iterrows():
+                    html_linhas += f"<tr><td style='border: 1px solid #ddd; padding: 8px;'>{row['Vencimento']}</td><td style='border: 1px solid #ddd; padding: 8px;'>{row['Histórico Banco']}</td><td style='border: 1px solid #ddd; padding: 8px;'>{row['Conta Financeira']} / {row['C.Custo']}</td><td style='border: 1px solid #ddd; padding: 8px;'>{row['Detalhes (Obs)']}</td><td style='border: 1px solid #ddd; padding: 8px;'>R$ {float(row['Valor']):,.2f}</td></tr>"
+                html_relatorio = f"<html><head><meta charset='utf-8'></head><body style='font-family: Arial, sans-serif; padding: 20px;'><h2 style='color: #2c3e50;'>Relatório de Conciliação - Cartão {perfil}</h2><table style='width: 100%; border-collapse: collapse; margin-top: 20px;'><tr style='background-color: #f2f2f2;'><th style='border: 1px solid #ddd; padding: 8px; text-align: left;'>Data</th><th style='border: 1px solid #ddd; padding: 8px; text-align: left;'>Histórico</th><th style='border: 1px solid #ddd; padding: 8px; text-align: left;'>Conta / C.Custo</th><th style='border: 1px solid #ddd; padding: 8px; text-align: left;'>Detalhes</th><th style='border: 1px solid #ddd; padding: 8px; text-align: left;'>Valor</th></tr>{html_linhas}</table><h3 style='text-align: right; margin-top: 20px;'>Total: R$ {total_geral:,.2f}</h3><script>window.print();</script></body></html>"
+                
+                st.download_button("📄 2. Baixar Fatura (PDF / Leitura)", data=html_relatorio, file_name=f"Relatorio_{perfil}_{datetime.datetime.now().strftime('%d%m%Y')}.html", mime="text/html", use_container_width=True)
 
 # ==========================================
 # ABA 3: EXPORTAÇÃO (APENAS ADMIN)
@@ -461,6 +503,10 @@ with aba3:
 
                     df_exportacao = df_final.copy()
                     
+                    # Remove as descrições da Conta e C.Custo (Deixa apenas o código numérico antes do hífen)
+                    df_exportacao['Conta Financeira'] = df_exportacao['Conta Financeira'].astype(str).apply(lambda x: str(x).split(' - ')[0].strip() if ' - ' in str(x) else x)
+                    df_exportacao['C.Custo'] = df_exportacao['C.Custo'].astype(str).apply(lambda x: str(x).split(' - ')[0].strip() if ' - ' in str(x) else x)
+
                     # Concatenação Nova Padrão: HISTORICO - DETALHES | Cartão Crédito: PORTADOR
                     df_exportacao['Observação'] = df_exportacao.apply(
                         lambda row: f"{row['Histórico Banco']} - {row['Detalhes (Obs)']} | Cartão Crédito: {row['Portador']}" 
@@ -475,6 +521,11 @@ with aba3:
                     # Formata Data para DD/MM/YYYY
                     df_exportacao['Vencimento'] = pd.to_datetime(df_exportacao['Vencimento']).dt.strftime('%d/%m/%Y')
                     
+                    # FORÇA RECUPERAR EMPRESA, FORNECEDOR E TÍTULO (Evita que venham em branco)
+                    for col_fixa in ['Empresa', 'Fornecedor', 'Titulo']:
+                        if col_fixa not in df_exportacao.columns:
+                            df_exportacao[col_fixa] = df_final[col_fixa] if col_fixa in df_final.columns else ""
+
                     # Define as colunas exatas da imagem
                     colunas_senior = ['Empresa', 'Fornecedor', 'Titulo', 'Observação', 'Valor', 'Conta Financeira', 'C.Custo', 'Vencimento']
                     df_exportacao = df_exportacao[colunas_senior]
