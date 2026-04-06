@@ -11,6 +11,8 @@ except:
     locale.setlocale(locale.LC_ALL, '')
 import json
 import os
+import gspread
+from google.oauth2.service_account import Credentials
 
 # NOVO: Isso força o app a usar as margens laterais da tela inteira!
 st.set_page_config(page_title="Conciliação de Cartão", layout="wide")
@@ -59,44 +61,78 @@ st.markdown("""
 """, unsafe_allow_html=True)
 # ------------------------------------------------
 
-# --- ARQUIVOS PARA SALVAR NO COMPUTADOR ---
-DB_FILE = "cadastros_base.json"
-FATURA_FILE = "fatura_dados.pkl" # Formato super seguro para salvar planilhas do Pandas
-META_FILE = "fatura_meta.json"
+# --- CONEXÃO COM O GOOGLE SHEETS ---
+# Coloque o arquivo JSON do Google na mesma pasta e renomeie exatamente para: credenciais.json
+NOME_PLANILHA = "Banco_Conciliacao"
+
+def conectar_google_sheets():
+    try:
+        escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        credenciais = Credentials.from_service_account_file("credenciais.json", scopes=escopos)
+        cliente = gspread.authorize(credenciais)
+        return cliente.open(NOME_PLANILHA)
+    except FileNotFoundError:
+        st.error("🚨 Arquivo 'credenciais.json' não encontrado! Coloque-o na mesma pasta do seu aplicativo.")
+        st.stop()
+    except Exception as e:
+        st.error(f"🚨 Erro ao conectar no Google Sheets: {e}")
+        st.stop()
 
 def salvar_dados_permanentes():
-    dados = {
-        "forn": st.session_state.lista_forn,
-        "cc": st.session_state.lista_cc,
-        "contas": st.session_state.lista_contas
-    }
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(dados, f, ensure_ascii=False)
+    planilha = conectar_google_sheets()
+    
+    # Salva Fornecedores
+    aba_forn = planilha.worksheet("Fornecedores")
+    aba_forn.clear()
+    if st.session_state.lista_forn:
+        aba_forn.update(values=[[i] for i in st.session_state.lista_forn], range_name="A1")
+        
+    # Salva CC
+    aba_cc = planilha.worksheet("Centros_Custo")
+    aba_cc.clear()
+    if st.session_state.lista_cc:
+        aba_cc.update(values=[[i] for i in st.session_state.lista_cc], range_name="A1")
+        
+    # Salva Contas
+    aba_contas = planilha.worksheet("Contas_Financeiras")
+    aba_contas.clear()
+    if st.session_state.lista_contas:
+        aba_contas.update(values=[[i] for i in st.session_state.lista_contas], range_name="A1")
 
 def salvar_fatura_no_disco():
-    # Salva a tabela
+    # Agora salva na NUVEM!
+    planilha = conectar_google_sheets()
+    aba_fatura = planilha.worksheet("Fatura")
+    aba_fatura.clear()
+    
     if not st.session_state.df_conciliacao.empty:
-        st.session_state.df_conciliacao.to_pickle(FATURA_FILE)
-    # Salva o fornecedor fixo
-    with open(META_FILE, "w", encoding="utf-8") as f:
-        json.dump({"fornecedor_global": st.session_state.fornecedor_global}, f, ensure_ascii=False)
+        df_para_salvar = st.session_state.df_conciliacao.copy()
+        # Transforma tudo em texto puro para o Google não bugar
+        df_para_salvar = df_para_salvar.astype(str) 
+        dados = [df_para_salvar.columns.values.tolist()] + df_para_salvar.values.tolist()
+        aba_fatura.update(values=dados, range_name="A1")
 
 def carregar_tudo():
-    # Carrega cadastros
-    if os.path.exists(DB_FILE):
-        with open(DB_FILE, "r", encoding="utf-8") as f:
-            dados = json.load(f)
-            st.session_state.lista_forn = dados.get("forn", [])
-            st.session_state.lista_cc = dados.get("cc", [])
-            st.session_state.lista_contas = dados.get("contas", [])
-    
-    # Carrega fatura salva
-    if os.path.exists(FATURA_FILE):
-        st.session_state.df_conciliacao = pd.read_pickle(FATURA_FILE)
-    if os.path.exists(META_FILE):
-        with open(META_FILE, "r", encoding="utf-8") as f:
-            meta = json.load(f)
-            st.session_state.fornecedor_global = meta.get("fornecedor_global", "")
+    try:
+        planilha = conectar_google_sheets()
+        
+        # Carrega listas (ignora linhas vazias)
+        st.session_state.lista_forn = [col[0] for col in planilha.worksheet("Fornecedores").get_all_values() if col]
+        st.session_state.lista_cc = [col[0] for col in planilha.worksheet("Centros_Custo").get_all_values() if col]
+        st.session_state.lista_contas = [col[0] for col in planilha.worksheet("Contas_Financeiras").get_all_values() if col]
+        
+        # Carrega a fatura
+        dados_fatura = planilha.worksheet("Fatura").get_all_values()
+        if len(dados_fatura) > 1: # Se tiver dados além do cabeçalho
+            st.session_state.df_conciliacao = pd.DataFrame(dados_fatura[1:], columns=dados_fatura[0])
+            # Converte o valor de volta para número para não quebrar a soma dos totais
+            if 'Valor' in st.session_state.df_conciliacao.columns:
+                st.session_state.df_conciliacao['Valor'] = pd.to_numeric(st.session_state.df_conciliacao['Valor'], errors='coerce').fillna(0.0)
+        else:
+            st.session_state.df_conciliacao = pd.DataFrame()
+            
+    except Exception as e:
+        st.error(f"⚠️ Não foi possível carregar os dados. Erro: {e}")
 
 # --- INICIALIZAÇÃO DA MEMÓRIA ---
 if 'lista_forn' not in st.session_state: st.session_state.lista_forn = []
@@ -146,9 +182,14 @@ with aba1:
         if st.button("🗑️ Limpar Todos os Dados (Iniciar Novo Mês)"):
             st.session_state.df_conciliacao = pd.DataFrame()
             st.session_state.fornecedor_global = ""
-            if os.path.exists(FATURA_FILE): os.remove(FATURA_FILE)
-            if os.path.exists(META_FILE): os.remove(META_FILE)
-            st.success("✅ Sistema zerado com sucesso! Pode subir a fatura nova.")
+            
+            # Limpa tudo no Google Sheets também
+            try:
+                planilha = conectar_google_sheets()
+                planilha.worksheet("Fatura").clear()
+            except: pass # Ignora erro se a aba já estiver vazia
+            
+            st.success("✅ Sistema e Nuvem zerados com sucesso! Pode subir a fatura nova.")
             st.rerun()
             
         st.markdown("---")
